@@ -36,7 +36,7 @@ class LangSAMDetector:
     segmenting photos in scanned images.
     """
     
-    def __init__(self, model_id="IDEA-Research/grounding-dino-tiny", device=None, seed=42):
+    def __init__(self, model_id="IDEA-Research/grounding-dino-base", device=None, seed=42):
         """
         Initialize the detector with the specified model.
         
@@ -639,18 +639,18 @@ def main():
                 "remove_overlaps": True,
                 "overlap_threshold": 5.0
             },
-            {
-                "name": "exp2_detailed",
-                "prompt": "a photo. a picture. a photograph. a snapshot. an image. a portrait.",
-                "remove_overlaps": True,
-                "overlap_threshold": 5.0
-            },
-            {
-                "name": "exp3_vintage",
-                "prompt": "an old photo. a vintage photograph. a historical picture. a family photo.",
-                "remove_overlaps": True,
-                "overlap_threshold": 5.0
-            }
+            # {
+            #     "name": "exp2_detailed",
+            #     "prompt": "a photo. a picture. a photograph. a snapshot. an image. a portrait.",
+            #     "remove_overlaps": True,
+            #     "overlap_threshold": 5.0
+            # },
+            # {
+            #     "name": "exp3_vintage",
+            #     "prompt": "an old photo. a vintage photograph. a historical picture. a family photo.",
+            #     "remove_overlaps": True,
+            #     "overlap_threshold": 5.0
+            # }
         ]
         
         for exp in experiments:

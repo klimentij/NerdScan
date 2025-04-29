@@ -8,3 +8,17 @@ output/
 # Ignore macOS system files
 .DS_Store
 **/.DS_Store
+
+# Ignore all image files
+*.jpg
+*.jpeg
+*.png
+*.tif
+*.tiff
+*.webp
+*.bmp
+
+# Ignore experiment results
+experiments/*/crops/
+experiments/*/visualizations/
+visualizations/

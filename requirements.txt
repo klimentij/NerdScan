@@ -6,3 +6,5 @@ torch
 pillow
 supervision
 pycocotools
+segment-anything
+matplotlib

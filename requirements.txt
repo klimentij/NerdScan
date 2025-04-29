@@ -1,3 +1,8 @@
 opencv-python
 numpy
 piexif
+transformers
+torch
+pillow
+supervision
+pycocotools

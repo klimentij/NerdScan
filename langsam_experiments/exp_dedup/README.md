@@ -2,7 +2,7 @@
 
 ## Parameters
 
-- **Text prompt:** `photo`
+- **Text prompt:** `an old photo.`
 - **Sample size:** 10
 - **Seed:** 42
 - **Remove overlapping boxes:** Yes

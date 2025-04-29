@@ -5,6 +5,8 @@ import argparse
 import piexif
 import re
 import datetime
+import subprocess
+from collections import defaultdict
 
 def find_photos(image_path):
     """Finds bounding boxes of photos in a scanned image."""
@@ -52,12 +54,22 @@ def find_photos(image_path):
 
     return img, bounding_boxes
 
-def main(input_dir, output_dir):
-    """Processes all images in input_dir and saves cropped photos to output_dir."""
+def main(input_dir, output_dir, preserve_structure=False):
+    """Processes all images in input_dir and saves cropped photos to output_dir.
+    
+    Args:
+        input_dir: Directory containing input scanned images
+        output_dir: Directory to save cropped photos
+        preserve_structure: If True, preserve the folder structure of input_dir in output_dir
+                          If False (default), use a flat structure in output_dir
+    """
     print(f"Starting processing from '{input_dir}' to '{output_dir}'...")
     processed_files = 0
     found_photos = 0
-
+    
+    # Track number of photos per year for sequential dating
+    year_photo_count = defaultdict(int)
+    
     for root, _, files in os.walk(input_dir):
         # Check parent directory name for year
         parent_dir_name = os.path.basename(root)
@@ -71,7 +83,9 @@ def main(input_dir, output_dir):
                 # Basic sanity check for plausible years (adjust range as needed)
                 if 1800 < year_num <= current_year: 
                     year = year_num
-                    exif_date_str = f"{year}:01:01 00:00:00"
+                    # Use mid-year date instead of January 1st
+                    # This looks more like a real capture date vs a placeholder
+                    # Base date for this year - will be adjusted by scan order
                     print(f"  Detected year {year} from folder '{parent_dir_name}' for EXIF.")
             except ValueError:
                 pass # Not a valid integer
@@ -92,9 +106,15 @@ def main(input_dir, output_dir):
                         print(f"  No photos found in {filename}. Skipping.")
                         continue
 
-                    # Create corresponding output subdirectory
-                    relative_path = os.path.relpath(root, input_dir)
-                    current_output_dir = os.path.join(output_dir, relative_path)
+                    # Determine output directory based on preserve_structure flag
+                    if preserve_structure:
+                        # Create corresponding output subdirectory matching input structure
+                        relative_path = os.path.relpath(root, input_dir)
+                        current_output_dir = os.path.join(output_dir, relative_path)
+                    else:
+                        # Completely flat structure - all photos go directly in output_dir
+                        current_output_dir = output_dir
+                    
                     os.makedirs(current_output_dir, exist_ok=True)
 
                     base_filename, ext = os.path.splitext(filename)
@@ -109,10 +129,29 @@ def main(input_dir, output_dir):
                         
                         cropped_photo = original_image[y1:y2, x1:x2]
 
-                        # Construct output filename
-                        # If only one photo found, keep original name (or close to it)
-                        # If multiple, append index
-                        output_filename = f"{base_filename}.jpg" if len(bounding_boxes) == 1 else f"{base_filename}_{i+1}.jpg"
+                        # Construct output filename with the year if available
+                        if year:
+                            # Update the count for this year and use it to create sequential numbering
+                            year_photo_count[year] += 1
+                            photo_index = year_photo_count[year]
+                            
+                            # Create a sequential date within the year (starting from January)
+                            # This preserves the scan order while keeping dates in the same year
+                            # We'll space them evenly throughout the year (roughly 1 day apart)
+                            day_of_year = min(photo_index, 365)  # Cap at 365 days
+                            
+                            # Convert day of year to month/day
+                            date_in_year = datetime.datetime(year, 1, 1) + datetime.timedelta(days=day_of_year-1)
+                            month = date_in_year.month
+                            day = date_in_year.day
+                            
+                            # Format with leading zeros
+                            exif_date_str = f"{year}:{month:02d}:{day:02d} 12:00:00"
+                            
+                            output_filename = f"{base_filename}_{year}_{photo_index:03d}.jpg"
+                        else:
+                            output_filename = f"{base_filename}_{i+1:03d}.jpg"
+                            
                         output_path = os.path.join(current_output_dir, output_filename)
 
                         # Save the cropped photo as JPG
@@ -123,18 +162,57 @@ def main(input_dir, output_dir):
                             print(f"  Error: Failed to save {output_path}")
                             continue
 
-                        # Add EXIF data if year was found
+                        # Set EXIF date with piexif and exiftool if year was detected
                         if exif_date_str:
                             try:
+                                # Basic EXIF setting with piexif (might not be strictly needed if exiftool works)
                                 exif_dict = {"Exif": {
                                     piexif.ExifIFD.DateTimeOriginal: exif_date_str.encode('utf-8'),
                                     piexif.ExifIFD.DateTimeDigitized: exif_date_str.encode('utf-8')
                                 }}
-                                exif_bytes = piexif.dump(exif_dict)
-                                piexif.insert(exif_bytes, output_path)
-                                print(f"    Added EXIF date {exif_date_str} to {output_path}")
+                                try:
+                                    exif_bytes = piexif.dump(exif_dict)
+                                    piexif.insert(exif_bytes, output_path)
+                                except Exception as piexif_e:
+                                    print(f"    Warning: piexif failed to insert basic EXIF: {piexif_e}")
+
+                                # Parse YYYY:MM:DD from exif_date_str for IPTC format
+                                date_parts = exif_date_str.split()[0].split(':')
+                                iptc_date_str = f"{date_parts[0]}{date_parts[1]}{date_parts[2]}"
+                                
+                                # Use exiftool to set ALL possible date tags and filesystem dates
+                                cmd = [
+                                    'exiftool',
+                                    '-overwrite_original',
+                                    # Set standard EXIF date tags
+                                    f'-EXIF:DateTimeOriginal={exif_date_str}',
+                                    f'-EXIF:CreateDate={exif_date_str}',
+                                    f'-EXIF:ModifyDate={exif_date_str}',
+                                    # Set XMP date tags
+                                    f'-XMP:DateCreated={exif_date_str}',
+                                    f'-XMP:CreateDate={exif_date_str}',
+                                    f'-XMP:ModifyDate={exif_date_str}',
+                                    # Set IPTC date tags (YYYYMMDD format)
+                                    f'-IPTC:DateCreated={iptc_date_str}',
+                                    # Set filesystem dates (this is important for Google Photos)
+                                    f'-FileCreateDate={exif_date_str}',
+                                    f'-FileModifyDate={exif_date_str}',
+                                    # Set more date-related tags for good measure
+                                    f'-AllDates={exif_date_str}',
+                                    # Write tags as specific types (might help compatibility)
+                                    '-E', # preserve existing tags
+                                    '-F', # fix tags that don't match expected format
+                                    output_path
+                                ]
+                                result = subprocess.run(cmd, capture_output=True, text=True, check=False) # Don't check=True initially
+
+                                if result.returncode == 0:
+                                    print(f"    Successfully set EXIF date via exiftool for {output_path}")
+                                else:
+                                    print(f"    Error running exiftool for {output_path}: {result.stderr}")
+
                             except Exception as e:
-                                print(f"    Error writing EXIF data to {output_path}: {e}")
+                                print(f"    Error processing EXIF/running exiftool for {output_path}: {e}")
 
                         print(f"  Saved cropped photo: {output_path}") # Reports save potentially including EXIF
                         found_photos += 1
@@ -147,11 +225,16 @@ def main(input_dir, output_dir):
     print(f"\nProcessing complete.")
     print(f"Processed {processed_files} image files.")
     print(f"Found and saved {found_photos} individual photos.")
+    
+    # Print count of photos per year
+    for year, count in sorted(year_photo_count.items()):
+        print(f"Year {year}: {count} photos")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Detect and crop photos from scanned images.")
     parser.add_argument("-i", "--input", default="input", help="Input directory containing scanned images.")
     parser.add_argument("-o", "--output", default="output", help="Output directory to save cropped photos.")
+    parser.add_argument("--preserve-structure", action="store_true", help="Preserve folder structure from input to output. Default is flat structure.")
     args = parser.parse_args()
 
     # Ensure input and output dirs are absolute paths relative to the script
@@ -163,4 +246,4 @@ if __name__ == "__main__":
         print(f"Error: Input directory '{input_dir_abs}' not found.")
     else:
         os.makedirs(output_dir_abs, exist_ok=True)
-        main(input_dir_abs, output_dir_abs)
+        main(input_dir_abs, output_dir_abs, args.preserve_structure)

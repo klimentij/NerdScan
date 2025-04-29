@@ -4,3 +4,7 @@
 # Ignore input and output files
 input/
 output/
+
+# Ignore macOS system files
+.DS_Store
+**/.DS_Store

@@ -602,7 +602,7 @@ def main():
         help="Output directory to save extracted photos."
     )
     parser.add_argument(
-        "--text-prompt", default="an old photo",
+        "--text-prompt", default="an old photo.",
         help="Text prompt for detection. Should be lowercase and end with a period."
     )
     parser.add_argument(

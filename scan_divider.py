@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 import os
 import argparse
+import piexif
+import re
+import datetime
 
 def find_photos(image_path):
     """Finds bounding boxes of photos in a scanned image."""
@@ -56,6 +59,23 @@ def main(input_dir, output_dir):
     found_photos = 0
 
     for root, _, files in os.walk(input_dir):
+        # Check parent directory name for year
+        parent_dir_name = os.path.basename(root)
+        exif_date_str = None
+        year = None
+        # Check if parent_dir_name is a 4-digit year
+        if re.match(r'^\d{4}$', parent_dir_name):
+            try:
+                year_num = int(parent_dir_name)
+                current_year = datetime.datetime.now().year
+                # Basic sanity check for plausible years (adjust range as needed)
+                if 1800 < year_num <= current_year: 
+                    year = year_num
+                    exif_date_str = f"{year}:01:01 00:00:00"
+                    print(f"  Detected year {year} from folder '{parent_dir_name}' for EXIF.")
+            except ValueError:
+                pass # Not a valid integer
+
         for filename in files:
             # Basic check for common image extensions
             if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp')):
@@ -97,8 +117,26 @@ def main(input_dir, output_dir):
 
                         # Save the cropped photo as JPG
                         # Quality parameter (0-100), higher is better quality/larger file
-                        cv2.imwrite(output_path, cropped_photo, [cv2.IMWRITE_JPEG_QUALITY, 95])
-                        print(f"  Saved cropped photo: {output_path}")
+                        save_success = cv2.imwrite(output_path, cropped_photo, [cv2.IMWRITE_JPEG_QUALITY, 95])
+
+                        if not save_success:
+                            print(f"  Error: Failed to save {output_path}")
+                            continue
+
+                        # Add EXIF data if year was found
+                        if exif_date_str:
+                            try:
+                                exif_dict = {"Exif": {
+                                    piexif.ExifIFD.DateTimeOriginal: exif_date_str.encode('utf-8'),
+                                    piexif.ExifIFD.DateTimeDigitized: exif_date_str.encode('utf-8')
+                                }}
+                                exif_bytes = piexif.dump(exif_dict)
+                                piexif.insert(exif_bytes, output_path)
+                                print(f"    Added EXIF date {exif_date_str} to {output_path}")
+                            except Exception as e:
+                                print(f"    Error writing EXIF data to {output_path}: {e}")
+
+                        print(f"  Saved cropped photo: {output_path}") # Reports save potentially including EXIF
                         found_photos += 1
                     
                     processed_files += 1

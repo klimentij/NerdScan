@@ -70,7 +70,7 @@ NerdScan uses the Grounding DINO object detection model from Hugging Face (`IDEA
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/NerdScan.git
+   git clone https://github.com/klimentij/NerdScan.git
    cd NerdScan
    ```
 

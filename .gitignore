@@ -18,6 +18,8 @@ output/
 *.webp
 *.bmp
 
+!cover.jpg
+
 # Ignore experiment results
 experiments/*/crops/
 experiments/*/visualizations/

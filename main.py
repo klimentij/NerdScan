@@ -377,8 +377,12 @@ def process_images(detector, input_dir, output_dir, vis_dir, text_prompt,
         for root, _, files in os.walk(input_dir):
             for filename in files:
                 if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp')):
-                    all_image_files.append((root, filename))
-    
+                    full_path = os.path.join(root, filename)
+                    all_image_files.append(full_path)
+
+    # Sort the list of files alphabetically by path
+    all_image_files.sort()
+
     console.print(f"{EMOJI_PHOTO} Found [bold]{len(all_image_files)}[/bold] image files")
     
     # Sample random images if requested
@@ -396,8 +400,10 @@ def process_images(detector, input_dir, output_dir, vis_dir, text_prompt,
     year_photo_count = defaultdict(int)
     
     # Process each selected file
-    for root, filename in tqdm(selected_files, desc="Processing images", unit="image"):
+    for input_path in tqdm(selected_files, desc="Processing images", unit="image"):
         # Check parent directory name for year
+        root = os.path.dirname(input_path)
+        filename = os.path.basename(input_path)
         parent_dir_name = os.path.basename(root)
         year = None
         
@@ -412,9 +418,6 @@ def process_images(detector, input_dir, output_dir, vis_dir, text_prompt,
                     logger.info(f"{EMOJI_CLOCK} Detected year {year} from folder '{parent_dir_name}' for EXIF")
             except ValueError:
                 pass  # Not a valid integer
-        
-        # Full path to input image
-        input_path = os.path.join(root, filename)
         
         try:
             # Detect photos in the image with confidence threshold

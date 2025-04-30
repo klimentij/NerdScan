@@ -85,7 +85,9 @@ NerdScan uses the Grounding DINO object detection model from Hugging Face (`IDEA
 
 ### Getting Started
 
-Just add your scanned images to the `input` directory and run:
+Put your scanned images (like JPGs) into the `input` directory. NerdScan supports images of any size and resolution - it's been tested with scans up to 1200 DPI, handling extremely large files without issues.
+
+**Recommendation:** Organize them into subfolders named after the year the photos were taken (e.g., `input/1979/scan1.jpg`, `input/1980/scan2.jpg`). NerdScan will automatically detect the year from the folder name and use it to set the EXIF creation date for the extracted photos, assigning sequential dates within that year.
 
 ```bash
 python main.py
@@ -95,6 +97,12 @@ This will:
 1. Scan for images in the `input` directory
 2. Extract detected photos to `output/crops`
 3. Save visualizations to `output/visualizations`
+
+### Beautiful CLI Interface
+
+NerdScan features a rich command-line interface with detailed progress tracking and vibrant output:
+
+![NerdScan CLI Interface](cli.png)
 
 ### Command Line Options
 
@@ -110,8 +118,8 @@ python main.py --help
 | `--single-image` | Process a single image instead of directory | None |
 | `--preserve-structure` | Preserve folder structure in output | False |
 | `--remove-overlaps` | Remove overlapping detection boxes | False |
-| `--overlap-threshold` | Threshold for overlap detection | 5.0 |
-| `--confidence-threshold` | Minimum confidence score to keep detections | 0.15 |
+| `--overlap-threshold` | Ratio threshold for considering boxes as overlapping (0.0 to 1.0). A higher value allows more overlap. | 0.05 |
+| `--confidence-threshold` | Minimum confidence score to keep detections (0.0 to 1.0). Lower values find more potential photos but may increase false positives. Higher values are stricter. | 0.15 |
 | `--seed` | Random seed for reproducibility | 42 |
 | `--sample-size` | Number of random images to process | All |
 | `--device` | Device to run model on ('cuda' or 'cpu') | Auto-detect |
@@ -154,6 +162,18 @@ More lenient detection (fewer missed photos):
 python main.py -i input -o output --confidence-threshold 0.10
 ```
 
+### Adjust Overlap Threshold
+
+Allow less overlap between detected boxes (removes more): 
+```bash
+python main.py -i input -o output --remove-overlaps --overlap-threshold 0.01
+```
+
+Allow more overlap between detected boxes (removes fewer):
+```bash
+python main.py -i input -o output --remove-overlaps --overlap-threshold 0.10
+```
+
 ### Process a Subset of Images
 
 ```bash
@@ -186,10 +206,10 @@ With `--preserve-structure` enabled, the subfolder structure from the input dire
 
 ### Common Issues
 
-- **No detections**: Try lowering the confidence threshold (e.g., `--confidence-threshold 0.10`)
-- **Too many false positives**: Increase the confidence threshold (e.g., `--confidence-threshold 0.25`)
-- **Overlapping detections**: Use the `--remove-overlaps` flag
-- **Specific photo types not detected**: Customize the text prompt (e.g., for Polaroids: `--text-prompt "a polaroid photo."`)
+- **No detections**: Try lowering the `--confidence-threshold` (e.g., `--confidence-threshold 0.10`). This makes the model more lenient.
+- **Too many false positives**: Increase the `--confidence-threshold` (e.g., `--confidence-threshold 0.25`). This makes the model stricter.
+- **Overlapping detections**: Ensure `--remove-overlaps` is enabled. If still too many overlaps remain, try lowering the `--overlap-threshold` (e.g., `--overlap-threshold 0.01`) to be more aggressive about removing overlapping boxes. If important overlapping boxes are being removed, try increasing the `--overlap-threshold` (e.g., `--overlap-threshold 0.10`).
+- **Specific photo types not detected**: Customize the text prompt (e.g., for Polaroids: `--text-prompt "a polaroid photo."`) to better match the objects you are looking for.
 
 ## License
 

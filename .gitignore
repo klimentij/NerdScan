@@ -19,6 +19,8 @@ output/
 *.bmp
 
 !cover.jpg
+!cli.png
+!input/1979/2025-04-29-0022.jpg
 
 # Ignore experiment results
 experiments/*/crops/

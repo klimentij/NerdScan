@@ -28,6 +28,14 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich import print as rprint
 
+# Suppress specific warnings
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers.models.grounding_dino.processing_grounding_dino")
+warnings.filterwarnings("ignore", message=".*Image size.*exceeds limit.*could be decompression bomb DOS attack.*")
+
+# Disable tokenizer parallelism to avoid warnings in multiprocessing contexts
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 # Set up rich console
 console = Console()
 
@@ -108,6 +116,8 @@ class PhotoDetector:
             image = Image.open(image_path)
             if image.mode != 'RGB':
                 image = image.convert('RGB')
+            # Increase the pixel limit for Pillow
+            Image.MAX_IMAGE_PIXELS = None # Disable the limit
             logger.info(f"Image loaded: {image.size[0]}x{image.size[1]}")
         except Exception as e:
             logger.error(f"{EMOJI_ERROR} Error loading image {image_path}: {e}")
@@ -199,7 +209,7 @@ class PhotoDetector:
         
         return overlap_percentage
     
-    def remove_overlapping_boxes(self, boxes, scores, labels, overlap_threshold=5.0):
+    def remove_overlapping_boxes(self, boxes, scores, labels, overlap_threshold=0.05):
         """
         Remove overlapping bounding boxes, keeping only the ones with higher confidence scores.
         
@@ -207,7 +217,7 @@ class PhotoDetector:
             boxes (list): List of bounding boxes in [x1, y1, x2, y2] format
             scores (list): Confidence scores for each detection
             labels (list): Labels for each detection
-            overlap_threshold (float): Percentage threshold for considering boxes as overlapping
+            overlap_threshold (float): Ratio threshold for considering boxes as overlapping (0.0 to 1.0)
             
         Returns:
             tuple: (filtered_boxes, filtered_scores, filtered_labels)
@@ -215,7 +225,7 @@ class PhotoDetector:
         if len(boxes) <= 1:
             return boxes, scores, labels
         
-        logger.info(f"Checking for overlapping boxes with threshold {overlap_threshold}%")
+        logger.info(f"Checking for overlapping boxes with threshold {overlap_threshold:.2f} (ratio)")
         
         # Convert to list for easier manipulation
         boxes_list = boxes.tolist() if isinstance(boxes, np.ndarray) else list(boxes)
@@ -246,7 +256,7 @@ class PhotoDetector:
                 overlap = self.calculate_overlap_percentage(box1, box2)
                 
                 # If overlap exceeds threshold, mark the lower confidence box for removal
-                if overlap > overlap_threshold:
+                if overlap > overlap_threshold * 100:  # Convert ratio to percentage for comparison
                     logger.info(f"  Removing box with score {scores_list[idx2]:.4f} due to {overlap:.2f}% overlap")
                     keep[idx2] = False
         
@@ -338,7 +348,7 @@ class PhotoDetector:
 
 def process_images(detector, input_dir, output_dir, vis_dir, text_prompt,
                   preserve_structure=False, remove_overlaps=False, 
-                  overlap_threshold=5.0, confidence_threshold=0.15,
+                  overlap_threshold=0.05, confidence_threshold=0.15,
                   sample_size=None, seed=42):
     """
     Process all images in the input directory and save results.
@@ -363,7 +373,7 @@ def process_images(detector, input_dir, output_dir, vis_dir, text_prompt,
     console.print(f"{EMOJI_MAGIC} Text prompt: [yellow]\"{text_prompt}\"[/yellow]")
     console.print(f"{EMOJI_MAGIC} Confidence threshold: [yellow]{confidence_threshold}[/yellow]")
     if remove_overlaps:
-        console.print(f"{EMOJI_MAGIC} Removing overlaps with threshold: [yellow]{overlap_threshold}%[/yellow]")
+        console.print(f"{EMOJI_MAGIC} Removing overlaps with threshold: [yellow]{overlap_threshold:.2f}[/yellow]")
     if preserve_structure:
         console.print(f"{EMOJI_MAGIC} Preserving folder structure")
     
@@ -621,12 +631,12 @@ def main():
         help="Remove overlapping detection boxes, keeping those with higher confidence."
     )
     parser.add_argument(
-        "--overlap-threshold", type=float, default=5.0,
-        help="Percentage threshold for considering boxes as overlapping (default: 5.0)."
+        "--overlap-threshold", type=float, default=0.05,
+        help="Ratio threshold for considering boxes as overlapping (0.0 to 1.0). A higher value allows more overlap. Default: 0.05."
     )
     parser.add_argument(
         "--confidence-threshold", type=float, default=0.15,
-        help="Minimum confidence score to keep detections (default: 0.15)."
+        help="Minimum confidence score to keep detections (0.0 to 1.0). Lower values find more potential photos but may increase false positives. Higher values are stricter. Default: 0.15."
     )
     parser.add_argument(
         "--seed", type=int, default=42,

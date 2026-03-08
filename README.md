@@ -1,5 +1,14 @@
 # NerdScan 📷 ✨
 
+> [!IMPORTANT]
+> **NerdScan is no longer actively maintained.**
+>
+> This repository was my initial open-source approach to extracting photos from scanned album pages. Since then, I trained a custom model specifically for this problem and turned that work into **[ScanCropper](https://scancropper.com)**, the production version I actively maintain.
+>
+> If you want the best results and the easiest workflow, I recommend using **[ScanCropper](https://scancropper.com)** instead.
+>
+> I’m leaving NerdScan up as a reference for the original idea and implementation, but I’m not planning new features, ongoing support, or regular updates here.
+
 <div align="center">
 
 ![NerdScan Cover](cover.jpg)
@@ -19,7 +28,7 @@
 
 ## Motivation
 
-Nothing out of the box worked well for extracting individual photos from album scans, so I built NerdScan. It achieves 100% accuracy on my private dataset of 39 scans, though I haven't done deeper evaluations yet.
+Nothing out of the box worked well for extracting individual photos from album scans, so I built NerdScan as an initial open-source prototype. That work later evolved into ScanCropper, where I trained a custom model specifically for this problem and focused ongoing development there.
 
 ## Key Features
 
